@@ -21,7 +21,7 @@ kgrid插件是依赖于jQuery和Bootstrap的, 使用前请先引入jQuery和Boot
 
 有图有真相, no图no bb
 
-![kgrid]({{ site.url }}/static/app/images/kgrid.png)
+![kgrid](http://kangyonggan.com/static/app/images/kgrid.png)
 
 ### `index.html`
 
