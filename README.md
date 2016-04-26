@@ -226,6 +226,8 @@ $(function () {
 }
 ```
 
+其中, status 和 items 为必送项, total仅在真分页必送
+
 ## 四. kgrid文档说明
 
 ### `配置`
