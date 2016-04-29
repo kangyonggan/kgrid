@@ -3,6 +3,8 @@
 ## 一. 简介
 如果你想用异步请求的方式去查询符合条件的记录， 并把返回的json对象解析后渲染到table中，而且还想根据返回的总记录数自动生成分页（支持真分页、假分页和不分页）， 那就试试这个插件吧！
 
+`插件已更新， 此文档已过时！`
+
 ## 二. 插件依赖
 kgrid插件是依赖于jQuery和Bootstrap的, 使用前请先引入jQuery和Bootstrap, 然后再引入[kgrid.min.js](http://kangyonggan.com/static/app/js/kgrid.min.js)
 
