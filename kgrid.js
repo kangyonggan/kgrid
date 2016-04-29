@@ -1,193 +1,422 @@
 (function ($) {
     $.fn.kgrid = function (options) {
 
+        /**
+         * 插件名称
+         */
+        var PLUGIN_NAME = "kgrid";
+
+        /**
+         * 当前版本
+         */
+        var VERSION = "v1.2.0";
+
+        /**
+         * 作者
+         */
+        var AUTHOR = "康永敢";
+
+        /**
+         * 最后跟新时间
+         */
+        var UPDATEDTIME = "2016-04-29 00:13:09";
+
+        /**
+         * table对象
+         */
         var $this = $(this);
 
-        var beforeSend = function (url, data) {
-            return $this;
+        /**
+         * table的id
+         */
+        var idOfTable = $this.attr("id");
+
+        /**
+         * table的tbody
+         */
+        var $tbody = $("#" + idOfTable + " tbody");
+
+        /**
+         * 分页按钮的id
+         *
+         * @type {string}
+         */
+        var idOfPageBtn = idOfTable + "-page-btn";
+
+        /**
+         * 分页信息的id
+         *
+         * @type {string}
+         */
+        var idOfPageInfo = idOfTable + "-page-info";
+
+        /**
+         * 分页首页按钮的class
+         *
+         * @type {string}
+         */
+        var classOfPageBtnFirst = idOfTable + "-page-btn-first";
+
+        /**
+         * 分页上一页按钮的class
+         *
+         * @type {string}
+         */
+        var classOfPageBtnPre = idOfTable + "-page-btn-pre";
+
+        /**
+         * 分页下一页按钮的class
+         *
+         * @type {string}
+         */
+        var classOfPageBtnNext = idOfTable + "-page-btn-next";
+
+        /**
+         * 分页尾页按钮的class
+         *
+         * @type {string}
+         */
+        var classOfPageBtnLast = idOfTable + "-page-btn-last";
+
+        /**
+         * 其他分页按钮的class
+         *
+         * @type {string}
+         */
+        var classOfPageBtnOther = idOfTable + "-page-btn-other";
+
+        /**
+         * thead多选框的class
+         */
+        var classOfHeadCheck = idOfTable + "-head-checkbox";
+
+        /**
+         * tbody多选框的class
+         */
+        var classOfBodyCheck = idOfTable + "-body-checkbox";
+
+        /**
+         * tbody忽略选择的class
+         */
+        var classOfIgnore = idOfTable + "-ignore";
+
+        /**
+         * get请求之前调用此方法
+         *
+         * @param data
+         * @returns {*}
+         */
+        var beforeSend = function (data) {
+            return data;
         };
 
-        var complete = function (result) {
-            return $this;
+        /**
+         * get请求成功之后调用此方法
+         *
+         * @param result
+         * @returns {*}
+         */
+        var success = function (result) {
         };
 
-        var flush = function (result) {
-            $this.kgrid("items", result.items);
+        /**
+         * get请求失败之后调用此方法
+         *
+         * @param result
+         * @returns {*}
+         */
+        var failure = function (result) {
+        };
 
-            $this.empty();
+        /**
+         * 发送get请求
+         *
+         * @param data
+         */
+        var send = function (data) {
+            $.get(getData("url"), data, function (result) {
+                //result = eval('(' + result + ')');
+                if (result) {
+                    if (result.status == "success") {
+                        // 把数据写入数据空间
+                        var pageType = getData("pageType");
 
-            writeHead();
+                        setData("items", result.items);
+                        if (pageType == 1) {
+                            setData("total", result.total);
+                        } else {
+                            setData("total", result.items.length);
+                        }
+                        flush();
 
-            writeBody(result);
+                        // 调用请求成功后的回调函数
+                        $this.data(PLUGIN_NAME).success(result);
+                    } else {
+                        $this.data(PLUGIN_NAME).failure(result);
+                    }
+                } else {
+                    $this.data(PLUGIN_NAME).failure(result);
+                }
+            });
+        };
 
-            if ($this.data("kgrid").type != 0) {
-                writePage(result);
+        /**
+         * 向数据空间中数据
+         *
+         * @param key
+         * @param val
+         */
+        var setData = function (key, val) {
+            var cfg = $this.data(PLUGIN_NAME);
+            cfg[key] = val;
+            $this.data(PLUGIN_NAME, cfg);
+        };
 
-                writePageInfo(result);
+        /**
+         * 从数据空间中数据
+         *
+         * @param key
+         * @returns {*}
+         */
+        var getData = function (key) {
+            return $this.data(PLUGIN_NAME)[key];
+        };
+
+        /**
+         * 初始化校验
+         *
+         * @param options
+         */
+        var valid = function (options) {
+            if (!options) {
+                $.error("Not bind options on kgrid plugin!");
+                return;
             }
+            if (options.fields == undefined) {
+                $.error("Not bind fields on kgrid plugin!");
+                return;
+            }
+        };
+
+        /**
+         * 刷新tbody, 根据传入的result
+         *
+         * @returns {*|HTMLElement}
+         */
+        var flush = function () {
+            writeBody();
+            writePageBtn();
+            writePageInfo();
 
             return $this;
         };
 
-        var writeHead = function () {
+        /**
+         * 写thead, 根据配置初始化表头, 只在初始化时调用
+         *
+         * @param options
+         * @returns {*|HTMLElement}
+         */
+        var writeHead = function (options) {
             var thead = "<thead><tr>";
 
-            var multi = $this.data("kgrid").multi;
-            if (multi) {
-                thead += "<th><input type='checkbox' class='" + $this.attr("id") + "-checkbox-all'/></th>";
+            // 判断是否支持多选
+            if (options.multi.enabled) {
+                thead += "<th width='" + options.multi.width + "'><input type='checkbox' class='" + classOfHeadCheck + "'/> " + options.multi.text + "</th>";
             }
 
-            var fields = $this.data("kgrid").fields;
+            thead += "<th width='" + options.serNo.width + "'>" + options.serNo.text + "</th>";
 
-            $.each(fields, function (key, val) {
-                thead += "<th>" + val + "</th>";
-            });
+            var fields = options.fields;
 
+            // 循环写入fields
+            for (var i = 0; i < fields.length; i++) {
+                var field = fields[i];
+
+                // 显示在thead的列名
+                var text = field.text;
+
+                // 判断是否显示这个字段
+                if (!field.hide) {
+                    var width = field.width;
+                    if (width != undefined) {
+                        thead += "<th width='" + width + "'>" + text + "</th>";
+                    } else {
+                        thead += "<th>" + text + "</th>";
+                    }
+                }
+
+            }
             thead += "</tr></thead>";
+
+            // 把thead接到table里
             $this.append(thead);
 
-            $("." + $this.attr("id") + "-checkbox-all").click(function () {
-                var all = $("." + $this.attr("id") + "-checkbox-item");
+            // 给thead多选框绑定 全选/全不选 的单击事件
+            if (options.multi.enabled) {
+                $("." + classOfHeadCheck).click(function () {
+                    // tbody中的全部多选框
+                    var $allBodyCheck = $("." + classOfBodyCheck);
 
-                if ($("." + $this.attr("id") + "-checkbox-all:checked").length > 0) {
-                    all.prop("checked", true);
-                } else {
-                    all.prop("checked", false);
-                }
-            });
+                    if ($("." + classOfHeadCheck).is(":checked")) {
+                        // 全选
+                        $allBodyCheck.prop("checked", true);
+                        $allBodyCheck.parent().parent().addClass("selected");
+                    } else {
+                        // 全不选
+                        $allBodyCheck.prop("checked", false);
+                        $allBodyCheck.parent().parent().removeClass("selected");
+                    }
+                });
+            }
 
             return $this;
         };
 
-        var writeBody = function (result) {
-            var tbody = "<tbody>";
+        /**
+         * 把null, undefined转为""
+         *
+         * @param val
+         * @returns {*}
+         */
+        var trim = function(val) {
+            if (val == undefined || val == null) {
+                return "";
+            }
+            return val;
+        };
 
-            var items = result.items;
+        /**
+         * 写tbody
+         *
+         * @param result
+         * @returns {*|HTMLElement}
+         */
+        var writeBody = function () {
+            // 清空tbody
+            $tbody.empty();
 
-            var fields = $this.data("kgrid").fields;
+            var items = getData("items");
 
+            // 把items写入tbody
+            var tbody = "";
             if (!items || items.length == 0) {
-                tbody += "<tr class='no-item'><td colspan='100'><div style='padding: 40px 0px;font-size: 14px;text-align: center;'>" + $this.data("kgrid").empty + "</div></td></tr>";
+                // 查询记录为空时显示的tr
+                tbody += "<tr class='" + classOfIgnore + "'><td colspan='100'><div class='empty'>" + getData('empty') + "</div></td></tr>";
+                tbody += "</tbody>";
+
+                // 把tbody拼接到table之后
+                return $this.append(tbody);
             }
 
-            var type = $this.data("kgrid").type;
-            if (type == 2) {
-                var pageNow = $this.data("kgrid").pageNow;
-                var pageSize = $this.data("kgrid").pageSize;
-                var total = result.items.length;
+            var fields = getData("fields");
+            var multi = getData("multi");
+            var pageNo = getData("pageNo");
+            var pageSize = getData("pageSize");
 
-                for (var i = (pageNow - 1) * pageSize; i < pageNow * pageSize && i < total; i++) {
-                    var item = items[i];
+            // 循环的把items拼接到tbody
+            for (var i = 0; i < items.length; i++) {
+                var item = items[i];
+                // 拼接tbody的tr
+                var tr = "<tr class='tr-cursor'>";
 
-                    tbody += "<tr style='cursor: pointer;'>";
-                    var multi = $this.data("kgrid").multi;
-                    if (multi) {
-                        tbody += "<td><input type='checkbox' class='" + $this.attr("id") + "-checkbox-item'/></td>";
-                    }
-
-                    $.each(fields, function (key, val) {
-                        $.each(item, function (itemKey, itemVal) {
-                            if (key == itemKey) {
-                                tbody += "<td>" + itemVal + "</td>";
-                            }
-                        });
-                    });
-
-                    tbody += "</tr>";
+                // 判断是否多选
+                if (multi.enabled) {
+                    tr += "<td><input type='checkbox' class='" + classOfBodyCheck + "'/></td>";
                 }
-            } else {
-                for (var i = 0; items && i < items.length; i++) {
-                    var item = items[i];
 
-                    tbody += "<tr style='cursor: pointer;'>";
-                    var multi = $this.data("kgrid").multi;
-                    if (multi) {
-                        tbody += "<td><input type='checkbox' class='" + $this.attr("id") + "-checkbox-item'/></td>";
+                tr += "<td>" + ((pageNo * 1 - 1) * pageSize + 1 + i) + "</td>";
+
+                // 循环拼接每个字段
+                for (var j = 0; j < fields.length; j++) {
+                    var field = fields[j];
+
+                    // 对应实体属性
+                    var name = field.name;
+
+                    // 用户判断是否隐藏
+                    var hide = field.hide;
+                    if (!hide) {
+                        // 数据格式化
+                        var format = field.format;
+                        var val = item[name];
+
+                        val = trim(val);
+
+                        if (format != undefined) {
+                            val = format(val, item);
+                        }
+
+                        tr += "<td>" + val + "</td>";
                     }
-
-                    $.each(fields, function (key, val) {
-                        $.each(item, function (itemKey, itemVal) {
-                            if (key == itemKey) {
-                                tbody += "<td>" + itemVal + "</td>";
-                            }
-                        });
-                    });
-
-                    tbody += "</tr>";
                 }
+                tr += "</tr>";
+                tbody += tr;
             }
 
             tbody += "</tbody>";
+            // 把tbody拼接到table之后
             $this.append(tbody);
 
+            // 绑定tbody中多选框的 选择/取消 事件
+            var $trs = $("#" + idOfTable + " tbody tr").not("." + classOfIgnore);
+            $trs.click(function () {
+                if (multi.enabled) {// 多选的情况
+                    // 当前点击的tr所在行的checkbox
+                    var $checkInput = $($(this).children("td")[0]).children("input");
 
-            var trs = $("#" + $this.attr("id") + " tbody tr").not(".no-item");
-
-            trs.click(function () {
-                var multi = $this.data("kgrid").multi;
-
-                if (multi) {
-                    var cb = $($(this).children("td")[0]).children("input");
-
-                    if (cb.is(":checked")) {
-                        cb.prop("checked", false);
-                    } else {
-                        cb.prop("checked", true);
-                    }
-                } else {
-                    if ($(this).attr("class") && $(this).attr("class").indexOf("selected") != -1) {
-                        $(this).css("border-left", "");
-                        $(this).css("color", "");
+                    if ($checkInput.is(":checked")) {
+                        $checkInput.prop("checked", false);
                         $(this).removeClass("selected");
-                        return;
+                    } else {
+                        $checkInput.prop("checked", true);
+                        $(this).addClass("selected");
                     }
-
-                    trs.css("border-left", "");
-                    trs.css("color", "");
-                    trs.removeClass("selected");
-                    $(this).css("border-left", "3px solid green");
-                    $(this).css("color", "green");
-                    $(this).addClass("selected");
+                } else {// 单选的情况
+                    if ($(this).attr("class") && $(this).attr("class").indexOf("selected") != -1) {
+                        $(this).removeClass("selected");
+                        $trs.css("border-left", "");
+                    } else {
+                        $trs.removeClass("selected");
+                        $(this).addClass("selected");
+                        $trs.css("border-left", "");
+                        $(this).css("border-left", "3px solid green");
+                    }
                 }
             });
 
             return $this;
         };
 
-        var writePage = function (result) {
-            $("#" + $this.attr("id") + "-page").remove();
+        /**
+         * 写分页按钮
+         *
+         * @returns {*|HTMLElement}
+         */
+        var writePageBtn = function () {
+            $("#" + idOfPageBtn).remove();
 
-            var total = 0;
-            var type = $this.data("kgrid").type;
-
-            if (type == 1) {
-                total = result.total;
-                if (total == undefined) {
-                    $.error('The total of items can not be null on jQuery.kgrid');
-                    return $this;
-                }
-            } else if (type == 2) {
-                total = result.items.length;
-            } else {
+            var pageType = getData("pageType") * 1;
+            if (pageType == 0) {
                 return $this;
             }
 
-            if (total == 0) {
+            var total = getData("total") * 1;
+            if (!total) {
                 return $this;
             }
-
-            var pageSize = $this.data("kgrid").pageSize;
+            var pageSize = getData("pageSize") * 1;
             var pageCount = Math.floor((total - 1) / pageSize + 1);
-            var pageNow = $this.data("kgrid").pageNow;
-            var maxPage = $this.data("kgrid").maxPage;
+            var pageNo = getData("pageNo") * 1;
+            var maxPageBtn = getData("maxPageBtn") * 1;
 
-            var page = "<nav id='" + $this.attr("id") + "-page' class='pull-left'>";
+            var page = "<nav id='" + idOfPageBtn + "' class='pull-left'>";
             page += "<ul class='pagination'>";
-            page += "<li><a href='javascript:' class='" + $this.attr("id") + "-first-page'>&laquo;</a></li>";
-            page += "<li><a href='javascript:' class='" + $this.attr("id") + "-pre-page'>&lsaquo;</a></li>";
+            page += "<li><a href='javascript:' class='" + classOfPageBtnFirst + "'>&laquo;</a></li>";
+            page += "<li><a href='javascript:' class='" + classOfPageBtnPre + "'>&lsaquo;</a></li>";
 
-            var start = pageNow * 1 - Math.floor(maxPage / 2);
-            var end = pageNow * 1 + Math.floor(maxPage / 2);
+            var start = pageNo - Math.floor(maxPageBtn / 2);
+            var end = pageNo + Math.floor(maxPageBtn / 2);
 
             if (start < 1) {
                 end += 1 - start;
@@ -197,284 +426,362 @@
                 start -= end - pageCount;
             }
 
-            for (var i = Math.max(1, start); i <= Math.min(pageCount, end); i++) {
-                if (i == pageNow) {
-                    page += "<li class='active'><a href='javascript:' class='" + $this.attr("id") + "-page-no'>" + i + "</a></li>";
+            start = Math.max(1, start);
+            end = Math.min(pageCount, end);
+
+            for (var i = start; i <= end; i++) {
+                if (i == pageNo) {
+                    page += "<li class='active'><a href='javascript:' class='" + classOfPageBtnOther + "'>" + i + "</a></li>";
                 } else {
-                    page += "<li><a href='javascript:' class='" + $this.attr("id") + "-page-no'>" + i + "</a></li>";
+                    page += "<li><a href='javascript:' class='" + classOfPageBtnOther + "'>" + i + "</a></li>";
                 }
             }
 
-            page += "<li><a href='javascript:' class='" + $this.attr("id") + "-next-page'>&rsaquo;</a></li>";
-            page += "<li><a href='javascript:' class='" + $this.attr("id") + "-last-page'>&raquo;</a></li>";
+            page += "<li><a href='javascript:' class='" + classOfPageBtnNext + "'>&rsaquo;</a></li>";
+            page += "<li><a href='javascript:' class='" + classOfPageBtnLast + "'>&raquo;</a></li>";
             page += "</ul></nav>";
             $this.after(page);
 
-            $("." + $this.attr("id") + "-first-page").click(function () {
+            $("." + classOfPageBtnFirst).click(function () {
                 $this.kgrid("jump", 1);
             });
-            $("." + $this.attr("id") + "-pre-page").click(function () {
-                $this.kgrid("jump", Math.max(1, pageNow * 1 - 1));
+            $("." + classOfPageBtnPre).click(function () {
+                $this.kgrid("jump", Math.max(1, pageNo - 1));
             });
-            $("." + $this.attr("id") + "-page-no").click(function () {
-                $this.kgrid("jump", $(this).text());
+            $("." + classOfPageBtnOther).click(function () {
+                $this.kgrid("jump", $(this).text() * 1);
             });
-            $("." + $this.attr("id") + "-next-page").click(function () {
-                $this.kgrid("jump", Math.min(pageNow * 1 + 1, pageCount));
+            $("." + classOfPageBtnNext).click(function () {
+                $this.kgrid("jump", Math.min(pageNo + 1, pageCount));
             });
-            $("." + $this.attr("id") + "-last-page").click(function () {
+            $("." + classOfPageBtnLast).click(function () {
                 $this.kgrid("jump", pageCount);
             });
 
             return $this;
         };
 
-        var writePageInfo = function (result) {
-            $("#" + $this.attr("id") + "-page-info").remove();
+        /**
+         * 写分页信息
+         *
+         * @returns {*|HTMLElement}
+         */
+        var writePageInfo = function () {
+            $("#" + idOfPageInfo).remove();
 
-            var total = 0;
-            var type = $this.data("kgrid").type;
-
-            if (type == 1) {
-                total = result.total;
-            } else if (type == 2) {
-                total = result.items.length;
-            } else {
+            var pageType = getData("pageType") * 1;
+            if (pageType == 0) {
                 return $this;
             }
 
-            if (total == 0) {
+            var total = getData("total") * 1;
+            if (!total) {
                 return $this;
             }
-
-            var pageSize = $this.data("kgrid").pageSize;
+            var pageSize = getData("pageSize") * 1;
             var pageCount = Math.floor((total - 1) / pageSize + 1);
-            var pageNow = $this.data("kgrid").pageNow;
+            var pageNo = getData("pageNo") * 1;
 
-            var pageInfo = "<nav id='" + $this.attr("id") + "-page-info' class='pull-right'>";
+            var pageInfo = "<nav id='" + idOfPageInfo + "' class='pull-right'>";
             pageInfo += "<ul class='pagination'>";
-            pageInfo += "<li><a href='javascript:' style='color: #000;cursor: default;'>" + pageNow + " of " + pageCount + " page, " + ((pageNow - 1) * pageSize + 1) + "~" + pageNow * pageSize + " of " + total + " item</a></li>";
+            pageInfo += "<li><a href='javascript:' class='page-info'>" + pageNo + " of " + pageCount + " page, " + ((pageNo - 1) * pageSize + 1) + "~" + pageNo * pageSize + " of " + total + " item</a></li>";
             pageInfo += "</ul></nav>";
             $this.after(pageInfo);
             return $this;
         };
 
-        var vaild = function (options) {
-            var formId = options.form;
-
-            if (formId) {
-                var action = $("#" + formId).attr("action");
-                if (action != undefined) {
-                    options.url = action;
-                    $this.data("kgrid", options);
-                } else {
-                    $.error('The action of form can not be null on jQuery.kgrid');
-                }
-            } else {
-                $.error('The form of table can not be null on jQuery.kgrid');
-            }
-
-            if (options.fields.length == 0) {
-                $.error('The fields of table can not be null on jQuery.kgrid');
-            }
-
-            return $this;
-        };
-
-        var getAndSet = function(key, val) {
-            var cfg = $this.data("kgrid");
-            if (val != undefined) {
-                cfg[key] = val;
-                $this.data("kgrid", cfg);
-            } else {
-                return eval("cfg." + key);
-            }
-        };
-
         var methods = {
+            /**
+             * 只在初始化时调用一次
+             *
+             * @param options
+             * @returns {*|HTMLElement}
+             */
             init: function (options) {
+                /**
+                 * 默认配置
+                 */
                 var defaults = {
-                    empty: "Empty item Of Search",
-                    fields: [],
-                    form: null,
-                    multi: false,
-                    type: 0,
-                    pageSize: 10,
-                    maxPage: 5,
-                    pageNow: 1,
-                    version: "1.0.0",
-                    author: "kangyonggan",
-                    date: "2016-04-25",
-                    beforeSend: beforeSend,
-                    complete: complete
+                    empty: "Empty item Of Search",// 结果集为空的时候的提示信息
+                    fields: undefined,// 字段 必填
+                    serNo: {
+                        width: "8%",
+                        text: "序号"
+                    },
+                    url: undefined,// 请求的url
+                    form: undefined,// 绑定的表单, 调用load时会把form中的字段加到请求头
+                    multi: {
+                        enabled: true,
+                        width: "8%",
+                        text: "全选"
+                    },// 是否多选
+                    pageType: 0,// 0: 不分页, 1: 真分页(后台必须传total到前台), 2: 假分页
+                    pageSize: 6,// 每页显示记录数
+                    maxPageBtn: 5,// 分页按钮的个数
+                    beforeSend: beforeSend,// 调用load方法的get请求之前会调用此方法
+                    success: success,// load方法成功时会调用此方法
+                    failure: failure// load方法失败时会调用此方法
                 };
 
+                // options没的就使用defaults的默认值
                 options = $.extend(defaults, options);
-                vaild(options);
-                $this.data("kgrid", options);
 
-                flush({items: [], total: 0});
+                // 校验options
+                valid(options);
+
+                // 把数据写入插件数据空间
+                $this.data(PLUGIN_NAME, options);
+
+                // 如果没配置url, 则使用form.action
+                if (options.form != undefined && options.url == undefined) {
+                    setData("url", $("#" + options.form).attr("action"));
+                }
+
+                // 写表头
+                writeHead(options);
+
+                // 刷新
+                flush();
+
                 return $this;
             },
-            load: function (pageNow) {
-                var form = $("#" + $this.data("kgrid").form);
 
+            /**
+             * 会带上最新参数去后台请求, 分页跳转请调用jump方法
+             *
+             * @returns {*|HTMLElement}
+             */
+            load: function () {
+                var form = getData("form");
                 var data = {};
-                var a = form.serializeArray();
-                $.each(a, function () {
-                    if (data[this.name] !== undefined) {
-                        if (!data[this.name].push) {
-                            data[this.name] = [data[this.name]];
-                        }
-                        data[this.name].push(this.value || '');
-                    } else {
-                        data[this.name] = this.value || '';
-                    }
-                });
-
-                if (!pageNow || pageNow * 1 < 1) {
-                    pageNow = 1;
-                }
-
-                data.pageNow = pageNow;
-                data.pageSize = $this.data("kgrid").pageSize;
-                var cfg = $this.data("kgrid");
-                cfg.pageNow = pageNow;
-                cfg.data = data;
-                $this.data("kgrid", cfg);
-
-                $this.data("kgrid").beforeSend($this.data("kgrid").url, data);
-
-                $.get($this.data("kgrid").url, $this.data("kgrid").data, function (result) {
-                    if (result) {
-                        result = eval("(" + result + ")");
-                        if (result.status == "success") {
-                            flush(result);
-                            $this.data("kgrid").complete(result);
+                // 判断是否绑定了表单, 如果绑定了表单, 就把表单参数传给后台
+                if (form != undefined) {
+                    var a = $("#" + form).serializeArray();
+                    $.each(a, function () {
+                        if (data[this.name] !== undefined) {
+                            if (!data[this.name].push) {
+                                data[this.name] = [data[this.name]];
+                            }
+                            data[this.name].push(this.value || '');
                         } else {
-                            $.error('Load item failed on jQuery.kgrid');
+                            data[this.name] = this.value || '';
                         }
-                    } else {
-                        $.error('Load item failed on jQuery.kgrid');
-                    }
-                });
-                return $this;
-            },
-            jump: function (pageNow) {
-                var data = $this.data("kgrid").data;
-
-                if (!pageNow || pageNow * 1 < 1) {
-                    pageNow = 1;
+                    });
                 }
 
-                data.pageNow = pageNow;
-                data.pageSize = $this.data("kgrid").pageSize;
-                var cfg = $this.data("kgrid");
-                cfg.pageNow = pageNow;
-                cfg.data = data;
-                $this.data("kgrid", cfg);
+                // 判断是否是真分页, 如果是真分页就需要把pageNo和pageSize传给后台
+                var pageType = getData("pageType");
+                if (pageType == 1) {
+                    data.pageSize = getData("pageSize");
+                    data.pageNo = 1;
+                }
 
-                if ($this.data("kgrid").type == 2) {
-                    var result = {items: $this.kgrid("items")};
-                    flush(result);
+                // get请求之前调用此方法(可以覆写)
+                data = $this.data(PLUGIN_NAME).beforeSend(data);
+
+                // 把当前页写进数据空间
+                if (pageType == 1) {
+                    setData("data", data);
+                } else {
+                    setData("data", {});
+                }
+
+                // 需要把当前页放入数据空间供生成序号时使用
+                setData("pageNo", 1);
+
+                // 发出get请求
+                return send(data);
+            },
+
+            /**
+             * 不会带上最新参数去后台请求, 分页跳转专用的方法
+             *
+             * @returns {*|HTMLElement}
+             */
+            jump: function (pageNo) {
+                // 需要把当前页放入数据空间供生成序号时使用
+                setData("pageNo", pageNo);
+
+                // 判断是否是真分页, 如果是真分页就需要把pageNo传给后台(其余的数据使用data中的老数据)
+                var pageType = getData("pageType");
+                var data = getData("data");
+                if (pageType == 1) {
+                    data.pageNo = pageNo;
+                } else if (pageType == 2) {
+                    // 假分页不需要去后台查询, 直接更改pageNo, 然后刷新flush
+                    flush();
+                    $this.data(PLUGIN_NAME).success({items: getData("items"), total: getData("total")});
                     return $this;
                 }
 
-                $this.data("kgrid").beforeSend($this.data("kgrid").url, data);
-
-                $.get($this.data("kgrid").url, $this.data("kgrid").data, function (result) {
-                    if (result) {
-                        result = eval("(" + result + ")");
-                        if (result.status == "success") {
-                            flush(result);
-                            $this.data("kgrid").complete(result);
-                        } else {
-                            $.error('Load item failed on jQuery.kgrid');
-                        }
-                    } else {
-                        $.error('Load item failed on jQuery.kgrid');
-                    }
-                });
-                return $this;
+                // 发出get请求
+                return send(getData("data"));
             },
+
+            /**
+             * 取得所选择的行
+             *
+             * @returns {Array}
+             */
             selected: function () {
-                var items = [];
-                var trs = [];
-                var multi = $this.data("kgrid").multi;
+                var returnItems = [];
+                var multi = getData("multi");
+                var pageNo = getData("pageNo") * 1;
+                var pageSize = getData("pageSize") * 1;
+                var items = getData("items");
 
-                if (multi) {
-                    trs = $("#" + $this.attr("id") + " ." + $this.attr("id") + "-checkbox-item:checked").parent().parent();
-                } else {
-                    trs = $("#" + $this.attr("id") + " tbody .selected");
+                var $selectedTrs = $("#" + idOfTable + " .selected");
+                for (var i = 0; i < $selectedTrs.length; i++) {
+                    var serNo = 1;
+                    if (multi.enabled) {
+                        serNo = $($($selectedTrs[i]).children("td")[1]).text() * 1;
+                    }
+                    serNo = serNo - (pageNo - 1) * pageSize - 1;
+                    returnItems[i] = items[serNo];
                 }
 
-                for (var i = 0; i < trs.length; i++) {
-                    var tds = $(trs[i]).children("td");
-                    var item = {};
-                    var j = multi ? 1 : 0;
-                    $.each($this.data("kgrid").fields, function (key, val) {
-                        item[key] = $(tds[j++]).text();
-                    });
-                    items[i] = item;
-                }
-
-                return items;
+                return returnItems;
             },
-            url: function (url) {
-                return getAndSet("url", url);
-            },
-            data: function (data) {
-                return getAndSet("data", data);
-            },
-            pageSize: function (pageSize) {
-                return getAndSet("pageSize", pageSize);
-            },
-            multi: function (multi) {
-                return getAndSet("multi", multi);
-            },
-            maxPage: function (maxPage) {
-                return getAndSet("maxPage", maxPage);
-            },
-            type: function (type) {
-                return getAndSet("type", type);
-            },
-            empty: function (empty) {
-                return getAndSet("empty", empty);
+            /**
+             * 刷新界面, 如果数据或配置有变化会重新渲染
+             */
+            flush: function () {
+                flush();
             },
             items: function (items) {
-                return getAndSet("items", items);
+                if (items == undefined) {
+                    return getData("items");
+                } else {
+                    setData("items", items);
+                }
+            },
+            pageNo: function (pageNo) {
+                if (pageNo == undefined) {
+                    return getData("pageNo");
+                } else {
+                    setData("pageNo", pageNo);
+                }
+            },
+            data: function (data) {
+                if (data == undefined) {
+                    return getData("data");
+                } else {
+                    setData("data", data);
+                }
+            },
+            url: function (url) {
+                if (url == undefined) {
+                    return getData("url");
+                } else {
+                    setData("url", url);
+                }
+            },
+            pageSize: function (pageSize) {
+                if (pageSize == undefined) {
+                    return getData("pageSize");
+                } else {
+                    setData("pageSize", pageSize);
+                }
+            },
+            pageType: function (pageType) {
+                if (pageType == undefined) {
+                    return getData("pageType");
+                } else {
+                    setData("pageType", pageType);
+                }
+            },
+            maxPageBtn: function (maxPageBtn) {
+                if (maxPageBtn == undefined) {
+                    return getData("maxPageBtn");
+                } else {
+                    setData("maxPageBtn", maxPageBtn);
+                }
+            },
+            empty: function (empty) {
+                if (empty == undefined) {
+                    return getData("empty");
+                } else {
+                    setData("empty", empty);
+                }
             },
             fields: function (fields) {
-                return getAndSet("fields", fields);
+                if (fields == undefined) {
+                    return getData("fields");
+                } else {
+                    setData("fields", fields);
+                }
             },
-            version: function () {
-                return $this.data("kgrid").version;
+            serNo: function (serNo) {
+                if (serNo == undefined) {
+                    return getData("serNo");
+                } else {
+                    setData("serNo", serNo);
+                }
             },
-            author: function () {
-                return $this.data("kgrid").author;
+            form: function (form) {
+                if (form == undefined) {
+                    return getData("form");
+                } else {
+                    setData("form", form);
+                }
             },
-            date: function () {
-                return $this.data("kgrid").date;
+            success: function (success) {
+                if (success == undefined) {
+                    return getData("success");
+                } else {
+                    setData("success", success);
+                }
+            },
+            failure: function (failure) {
+                if (failure == undefined) {
+                    return getData("failure");
+                } else {
+                    setData("failure", failure);
+                }
             },
             beforeSend: function (beforeSend) {
-                return getAndSet("beforeSend", beforeSend);
+                if (beforeSend == undefined) {
+                    return getData("beforeSend");
+                } else {
+                    setData("beforeSend", beforeSend);
+                }
             },
-            complete: function (complete) {
-                return getAndSet("complete", complete);
+            classOfIgnore: function () {
+                return classOfIgnore;
+            },
+            append: function (tr) {
+                if (tr != undefined) {
+                    $("#" + idOfTable + " tbody").append(tr);
+                }
+            },
+            version: function () {
+                return VERSION;
+            },
+            author: function () {
+                return AUTHOR;
+            },
+            updatedtime: function () {
+                return UPDATEDTIME;
             }
         };
 
+        // 第一个参数为方法名
         var method = arguments[0];
 
         if (methods[method]) {
+            // 调用普通方法
             method = methods[method];
+            // 取出第二个往后的参数, 传个调用的方法
             arguments = Array.prototype.slice.call(arguments, 1);
         } else if (typeof method == "object" || !method) {
+            // 调用初始方法
             method = methods.init;
         } else {
-            $.error('Method ' + method + ' does not exist on jQuery.kgrid');
+            // 方法不存在
+            $.error("Not find method " + method + " on kgrid plugin!");
             return this;
         }
+        // 执行方法
         return method.apply(this, arguments);
     };
 })(jQuery);
