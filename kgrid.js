@@ -135,7 +135,9 @@
          */
         var send = function (data) {
             $.get(getData("url"), data, function (result) {
-                //result = eval('(' + result + ')');
+                if (typeof result == "string") {
+                    result = eval('(' + result + ')');
+                }
                 if (result) {
                     if (result.status == "success") {
                         // 把数据写入数据空间
@@ -279,7 +281,7 @@
          * @param val
          * @returns {*}
          */
-        var trim = function(val) {
+        var trim = function (val) {
             if (val == undefined || val == null) {
                 return "";
             }
