@@ -1,0 +1,12 @@
+.empty {
+    padding: 40px 0px;font-size: 14px;text-align: center;
+}
+
+.page-info {
+    color: #000 !important;
+    cursor: default;
+}
+
+.tr-cursor {
+    cursor: pointer;
+}
