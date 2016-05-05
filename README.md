@@ -329,7 +329,7 @@ var items = userTable.kgrid("flush");
 用于向表格中追加一条记录, 自带时时刷新, 不需要再次调用`flush`刷新, 用法如下:
 
 ```js
-var items = userTable.kgrid("append", "<tr><td>...</td><td>...</td><td>...</td></tr>");
+userTable.kgrid("append", "<tr><td>...</td><td>...</td><td>...</td></tr>");
 ```
 
 `selected`方法
